@@ -30,7 +30,7 @@ func main() {
 	http.HandleFunc("/", redirectHandler)
 
 	// 3. Start Server
-	port := ":8080"
+	port := ":4111"
 	log.Printf("Server starting on port %s", port)
 	if err := http.ListenAndServe(port, nil); err != nil {
 		log.Fatalf("Server failed: %v", err)
