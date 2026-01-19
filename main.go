@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"strings"
 
@@ -27,7 +29,7 @@ func main() {
 	}
 
 	// 2. Configure Routes
-	http.HandleFunc("/", redirectHandler)
+	http.HandleFunc("/", proxyHandler)
 
 	// 3. Start Server
 	port := ":4111"
@@ -60,29 +62,41 @@ func loadConfig(filename string) error {
 	return nil
 }
 
-func redirectHandler(w http.ResponseWriter, r *http.Request) {
-	// Get the Authorization header
+func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get("Authorization")
 
-	// Check if header is missing or doesn't start with "Token "
 	if authHeader == "" || !strings.HasPrefix(authHeader, "Token ") {
-		log.Printf("Warning: Request received with missing or malformed Authorization header from %s", r.RemoteAddr)
-		http.Error(w, "Unauthorized: Missing or malformed token", http.StatusUnauthorized)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// Extract the actual token string (remove "Token " prefix)
 	token := strings.TrimPrefix(authHeader, "Token ")
 
-	// Lookup the token in our map
-	targetURL, exists := urlMap[token]
+	targetStr, exists := urlMap[token]
 	if !exists {
-		log.Printf("Warning: Request received with unknown token: %s", token)
 		http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 		return
 	}
 
-	// Perform the redirect
-	// StatusFound (302) is generally used for temporary redirects
-	http.Redirect(w, r, targetURL, http.StatusFound)
+	// Parse the target URL
+	targetURL, err := url.Parse(targetStr)
+	if err != nil {
+		http.Error(w, "Bad Gateway", http.StatusBadGateway)
+		return
+	}
+
+	// Create a Reverse Proxy
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+
+	// Update the request to match the target
+	r.URL.Host = targetURL.Host
+	r.URL.Scheme = targetURL.Scheme
+	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
+	r.Host = targetURL.Host
+
+	// Note: The original 'Authorization' header is automatically
+	// passed along by the proxy unless explicitly removed.
+
+	// Serve the request via the proxy
+	proxy.ServeHTTP(w, r)
 }
