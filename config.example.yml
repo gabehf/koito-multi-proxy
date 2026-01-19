@@ -1,0 +1,5 @@
+mappings:
+  - token: "<token-a>"
+    url: "https://koito.bob.com"
+  - token: "<token-b>"
+    url: "https://koito.alice.com"
