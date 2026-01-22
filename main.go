@@ -6,6 +6,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -24,7 +25,11 @@ var urlMap map[string]string
 
 func main() {
 	// 1. Load and Parse Config
-	if err := loadConfig("config.yml"); err != nil {
+	cfgDir := os.Getenv("KMP_CONFIG_DIR")
+	if cfgDir == "" {
+		cfgDir = "/etc/kmp"
+	}
+	if err := loadConfig(path.Join(cfgDir, "config.yml")); err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
